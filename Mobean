@@ -1,5 +1,6 @@
 	local beingrobbed = false
 	local Canberobbed = true
+	print(target)
 	local DeathCoolDown = game.ReplicatedStorage.Customisable.DeathCooldown.Value
 	local RobCoolDown = game.ReplicatedStorage.Customisable.RobCooldown.Value
 	local IdleAnimRobbed = target.Parent.Parent.Cashier.Humanoid:LoadAnimation(script.IdleRobbed)
