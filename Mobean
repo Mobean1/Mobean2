@@ -101,4 +101,3 @@ local beingrobbed = false
 		end
 		wait(.5) 
 	end
-
