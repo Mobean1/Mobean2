@@ -8,7 +8,7 @@ local beingrobbed = false
 	local DeadAnim = target.Parent.Parent.Cashier.Humanoid:LoadAnimation(script.Died)
 	local DeadDmgAnim = target.Parent.Parent.Cashier.Humanoid:LoadAnimation(script.DiedHit)
 	local oldhp = target.Parent.Parent.Cashier.Humanoid.Health
-
+	print("test")
 	target.Parent.Parent.TrashBag.Transparency = 1
 	target.Parent.Parent.Cashier.Cash.Transparency = 1
 	target.Parent.Parent.Cashier.TrashBag.Transparency = 1
