@@ -18,6 +18,7 @@ local beingrobbed = false
 	DeadDmgAnim.Priority = Enum.AnimationPriority.Action4
 	IdleAnimRobbed.Priority = Enum.AnimationPriority.Action2
 	print("test")
+
 	target.Parent.Parent.Cashier.Humanoid.HealthChanged:Connect(function()
 		if oldhp > target.Parent.Parent.Cashier.Humanoid.Health then
 			HitAnim:Play()
