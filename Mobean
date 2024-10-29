@@ -1,3 +1,8 @@
+local module = {}
+
+local Customisable = require(script.Parent.Customisable)
+local Players = game:GetService("Players")
+
 function module.Start(target)
 	local beingrobbed = false
 	local Canberobbed = true
@@ -104,3 +109,5 @@ function module.Start(target)
 		wait(.5) 
 	end
 end
+
+return module
