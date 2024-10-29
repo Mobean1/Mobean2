@@ -1,341 +1,112 @@
 local module = {}
 
-function module.Start(tool)
-	local fireEvent = tool.FireEvent
-	local FastCast = require(tool.FastCastRedux)
-	local firePoint = tool.Handle.FirePoint
-	local TS = game:GetService("TweenService")
-	local folder = game.Workspace:WaitForChild("GunsAssetTemp",.0011) or Instance.new("Folder", workspace)
-	local bulletsFolder = workspace:FindFirstChild("BulletFolder",.0011) or Instance.new("Folder", workspace)
-	bulletsFolder.Name = "BulletFolder"
-	local GunSystem = game.ReplicatedStorage.GunSystem
-	local Cooldown = false
-	local holdanimation = nil
-	local Reloading = false
-	folder.Name = "GunsAssetTemp"
-	local Debris = game:GetService("Debris")
-	local bulletTemplate = GunSystem.Bullet
+local Customisable = require(script.Parent.Customisable)
+local Players = game:GetService("Players")
 
-	--FastCast.VisualizeCasts = true
+function module.Start(target)
+	local beingrobbed = false
+	local Canberobbed = true
+	local DeathCoolDown = Customisable.DeathCooldown
+	local RobCoolDown = Customisable.RobCooldown
+	local IdleAnimRobbed = target.Parent.Parent.Cashier.Humanoid:LoadAnimation(script.IdleRobbed)
+	local RobAnim = target.Parent.Parent.Cashier.Humanoid:LoadAnimation(script.Robbed)
+	local HitAnim = target.Parent.Parent.Cashier.Humanoid:LoadAnimation(script.Damaged)
+	local DeadAnim = target.Parent.Parent.Cashier.Humanoid:LoadAnimation(script.Died)
+	local DeadDmgAnim = target.Parent.Parent.Cashier.Humanoid:LoadAnimation(script.DiedHit)
+	local oldhp = target.Parent.Parent.Cashier.Humanoid.Health
 
-	local caster = FastCast.new()
-	local Humanoid = nil
-	local castParams = RaycastParams.new()
-	castParams.FilterType = Enum.RaycastFilterType.Blacklist
-	castParams.IgnoreWater = true
+	target.Parent.Parent.TrashBag.Transparency = 1
+	target.Parent.Parent.Cashier.Cash.Transparency = 1
+	target.Parent.Parent.Cashier.TrashBag.Transparency = 1
+	HitAnim.Priority = Enum.AnimationPriority.Action3
+	DeadAnim.Priority = Enum.AnimationPriority.Action4
+	RobAnim.Priority = Enum.AnimationPriority.Action2
+	DeadDmgAnim.Priority = Enum.AnimationPriority.Action4
+	IdleAnimRobbed.Priority = Enum.AnimationPriority.Action2
 
-	local castBehavior = FastCast.newBehavior()
-	castBehavior.RaycastParams = castParams
-	castBehavior.Acceleration = Vector3.new(0, -workspace.Gravity, 0)
-	castBehavior.AutoIgnoreContainer = false
-	castBehavior.CosmeticBulletContainer = bulletsFolder
-	castBehavior.CosmeticBulletTemplate = bulletTemplate
-	local currentplr = nil
-	--SETTINGS--
-
-	--SOUNDS-
-	local SoundDistance = 500
-	--DAMAGES--
-	local MinDamage,MaxDamage,HeadShotMultiplier = 30,50,1.5
-	--BULLET BEHAVIOUR--
-	local BulletSpeed = 10000
-	local BulletSpread = 1 -- ANGLE
-	---------------
-
-	--SYSTEM--
-
-	local function addHole(result)
-		local Hole = game.ReplicatedStorage.GunSystem.BulletHole:Clone()
-		Hole.Parent = folder
-		Hole.Position = result.Position
-		Hole.CFrame = CFrame.new(Hole.Position, Hole.Position+result.Normal)
-		local wc = Instance.new("WeldConstraint",Hole)
-		wc.Part0 = Hole
-		wc.Part1 = result.Instance
-		delay(.2,function()
-			Hole.ParticleEmitter.Enabled = false
-			Hole.Debris.Enabled = false
-			Hole.Debris2.Enabled = false
-			Hole.Flare.Enabled = false
-			Hole.Smoke1.Enabled = false
-
-		end)
-		local replicatedStorage = game:GetService("ReplicatedStorage")
-		local bulletImpactSFX = replicatedStorage:WaitForChild("BulletImpactSFX",.1)
-		local sounds = bulletImpactSFX:GetChildren()
-		if #sounds > 0 then
-			local randomIndex = math.random(1, #sounds)
-			local randomSound = sounds[randomIndex]
-			local Hole = Instance.new("Sound")
-			Hole.Name = "Hole"
-			randomSound:Clone().Parent = Hole
-
-
-			Hole:Play()
-		else
-			warn("No sounds found in BulletImpactSFX.")
+	target.Parent.Parent.Cashier.Humanoid.HealthChanged:Connect(function()
+		if oldhp > target.Parent.Parent.Cashier.Humanoid.Health then
+			HitAnim:Play()
+			oldhp = target.Parent.Parent.Cashier.Humanoid.Health
 		end
-		game:GetService("Debris"):AddItem(Hole.ParticleEmitter,10)
-		game:GetService("Debris"):AddItem(Hole.Debris,10)
-		game:GetService("Debris"):AddItem(Hole.Debris2,10)
-		game:GetService("Debris"):AddItem(Hole.Flare,10)
-		game:GetService("Debris"):AddItem(Hole.Smoke1,10)
-		game:GetService("Debris"):AddItem(Hole,15)
-		return Hole
-	end
-
-
-
-	--SLIDE SYSTEM
-
-	local function SlideBounce(target,lengthtime)
-		local weld = tool.Slide.Weld
-		local targetPosition = CFrame.new(tool:GetAttribute("SlidePos"))
-
-		local tweenInfo = TweenInfo.new(
-			lengthtime,
-			Enum.EasingStyle.Quad, 
-			Enum.EasingDirection.Out,
-			0, 
-			false,
-			0 
-		)
-
-		local tweenGoal = {}
-		tweenGoal.C0 = targetPosition
-
-		local tween = TS:Create(weld, tweenInfo, tweenGoal)
-
-		tween:Play()
-		print("slidebounce")
-	end
-
-	local function SlideBounceBack(target,lengthtime)
-		local weld = tool.Slide.Weld
-		local targetPosition = CFrame.new(0,0,0)
-
-		local tweenInfo = TweenInfo.new(
-			lengthtime,
-			Enum.EasingStyle.Quad, 
-			Enum.EasingDirection.Out,
-			0, 
-			false,
-			0 
-		)
-
-		local tweenGoal = {}
-		tweenGoal.C0 = targetPosition
-
-		local tween = TS:Create(weld, tweenInfo, tweenGoal)
-
-		tween:Play()
-
-		print("slidebounce")
-	end
-
-	local function BulletEjection()
-		local shell = game.ReplicatedStorage.GunSystem.Bullets[tool:GetAttribute("BulletType")].Casing:Clone()
-		Debris:AddItem(shell,10)
-		shell.CFrame = tool.Handle.EjectionPoint.WorldCFrame
-		shell.Parent = folder
-		shell.BodyPosition.Position = tool.Handle.EjectionDir.WorldPosition
-
-		delay(.01, function()
-			shell.BodyPosition.P = math.random(20000, 60000)
-			shell.BodyPosition:Destroy()
-		end)
-	end
-	
-	local function onEquipped()
-		Humanoid = tool.Parent:FindFirstChildOfClass("Humanoid")
-		castParams.FilterDescendantsInstances = {tool.Parent, bulletsFolder,folder}
-		tool.State:FireClient(game.Players:GetPlayerFromCharacter(tool.Parent),true)
-		currentplr = game.Players:GetPlayerFromCharacter(tool.Parent)
-		holdanimation = Humanoid:LoadAnimation(tool.Animations.Value.Hold)
-		holdanimation.Priority = Enum.AnimationPriority.Action3
-		holdanimation:Play()
-	end
-	
-	local function loadammo(plr)
-		if plr.Backpack:FindFirstChild(tool:GetAttribute("BulletType")) then
-			plr.Backpack:FindFirstChild(tool:GetAttribute("BulletType")):Destroy()
-			tool:SetAttribute("TotalAmmo",tool:GetAttribute("TotalAmmo")+tool:GetAttribute("MaxAmmo"))
-			tool.Handle.LoadAmmo:Play()
-		end
-	end
-
-	local function reload()
-		print("start")
-		if not Reloading then
-			local HasBeenUnequipped = false
-			local reloadAnim = Humanoid:LoadAnimation(tool.Animations.Value.Reload)
-			Reloading = true
-			local mag = game.ReplicatedStorage.GunSystem.GunsData[tool.Name].Mag.Mag:Clone()
-			local mag2 = game.ReplicatedStorage.GunSystem.GunsData[tool.Name].Mag.Mag:Clone()
-			Debris:AddItem(mag,20)
-			Debris:AddItem(mag2,20)
-
-			reloadAnim:Play()
-			mag.WeldToHand.Part0 = Humanoid.Parent:WaitForChild("LeftHand",.1)
-			mag2.WeldToHand.Part0 = Humanoid.Parent:WaitForChild("LeftHand",.1)
-			reloadAnim:GetMarkerReachedSignal("MagOut"):Connect(function(param)
-				mag.Parent = folder
-				for i,v in ipairs(tool.MagModel:GetChildren()) do
-					v.Transparency = 1
-				end
-				tool.Handle.MagOut:Play()
-
-			end)
-			reloadAnim:GetMarkerReachedSignal("MagDrop"):Connect(function()
-				mag.WeldToHand.Part0 = nil
-
-			end)
-			reloadAnim:GetMarkerReachedSignal("GrabMag"):Connect(function()
-				mag2.Parent = folder
-			end)
-			reloadAnim:GetMarkerReachedSignal("PutMag"):Connect(function()
-				tool.Handle.PutMag:Play()
-				mag2:Destroy()
-				for i,v in ipairs(tool.MagModel:GetChildren()) do
-					v.Transparency = 0
-				end
-			end)
-			reloadAnim:GetMarkerReachedSignal("BoltBack"):Connect(function()
-				SlideBounce(1,.04)
-				tool.Handle.BoltBack:Play()
-
-			end)
-			reloadAnim:GetMarkerReachedSignal("BoltRelease"):Connect(function()
-				SlideBounceBack(1,.04)
-
-			end)
-			tool.Unequipped:Connect(function()
-				if Reloading == true then
-
-					HasBeenUnequipped = true
-					Reloading = false
-					reloadAnim:Stop()
-					mag:Destroy()
-					mag2:Destroy()
-				end
-			end)
-			task.wait(reloadAnim.Length)
-			if HasBeenUnequipped == false then
-				Reloading = false
-				tool:SetAttribute("TotalAmmo",tool:GetAttribute("TotalAmmo")+tool:GetAttribute("Ammo"))
-				tool:SetAttribute("Ammo",0)
-				local ammochange = tool:GetAttribute("MaxAmmo")-tool:GetAttribute("Ammo")
-				if tool:GetAttribute("TotalAmmo") - ammochange > 0 then
-					tool:SetAttribute("Ammo",tool:GetAttribute("MaxAmmo"))
-					tool:SetAttribute("TotalAmmo",tool:GetAttribute("TotalAmmo")-ammochange)
-				else
-					tool:SetAttribute("Ammo",tool:GetAttribute("TotalAmmo"))
-					tool:SetAttribute("TotalAmmo",0)
-				end
-
-			end
-
-		end
-	end
-
-	tool.Inputs.OnServerEvent:Connect(function(plr,input)
-		if input == "Reload" then
-			reload()
-		elseif input == "LoadAmmo" then
-			loadammo(plr)
-		end
-	end)
-
-	tool.Unequipped:Connect(function()
-		tool.State:FireClient(currentplr,false)
-		currentplr = nil
-		holdanimation:Stop()
-		holdanimation = nil
-		Humanoid = nil
-	end)
-
-	local function ShootAnim()
-		local anim = Humanoid:LoadAnimation(tool.Animations.Value.Shoot)
-		anim.Priority = Enum.AnimationPriority.Action4
-		anim:Play()
-
-	end
-
-	local function onLengthChanged(cast, lastPoint, direction, length, velocity, bullet)
-		if bullet then 
-			local bulletLength = bullet.Size.Z/2
-			local offset = CFrame.new(0, 0, -(length - bulletLength))
-			bullet.CFrame = CFrame.lookAt(lastPoint, lastPoint + direction):ToWorldSpace(offset)
-		end
-	end
-
-	local function onRayHit(cast, result, velocity, bullet)
-		local hit = result.Instance
-
-		local character = hit:FindFirstAncestorWhichIsA("Model")
-		if character and character:FindFirstChild("Humanoid") then
-			if hit.Name == "Head" then
-				character.Humanoid:TakeDamage(math.random(tool:GetAttribute("MinDamage"),tool:GetAttribute("MaxDamage"))*tool:GetAttribute("HeadShotMultiplier"))
+		if target.Parent.Parent.Cashier.Humanoid.Health <= 1 then
+			target.Parent.Parent.Cashier.Humanoid.Health = 1.1
+			if not DeadAnim.IsPlaying then
+				target.Parent.Parent.Cashier.Cash.Transparency = 1
+				target.Parent.Parent.Cashier.TrashBag.Transparency = 1
+				Canberobbed = false
+				DeadAnim:Play()
+				IdleAnimRobbed:Stop()
+				DeadAnim:GetMarkerReachedSignal("End"):Wait()
+				DeadAnim:AdjustSpeed(0)
+				RobAnim:Stop()	
+				beingrobbed = false
+				wait(DeathCoolDown)
+				Canberobbed = true
+				target.Parent.Parent.Cashier.Humanoid.Health = target.Parent.Parent.Cashier.Humanoid.MaxHealth
+				DeadDmgAnim:Stop()
+				DeadAnim:Stop()
 			else
-				character.Humanoid:TakeDamage(math.random(tool:GetAttribute("MinDamage"),tool:GetAttribute("MaxDamage")))
+				DeadDmgAnim:Play()
 			end
-		else
-			addHole(result)
 		end
+	end)
 
-		game:GetService("Debris"):AddItem(bullet, 2)
+	local cd = target.Parent.Parent.TrashBag:FindFirstChildOfClass("ClickDetector")
+	cd.MouseClick:Connect(function(plr)
+		Customisable.CashbagOpened(cd.Parent, plr)
+	end)
+
+	local function initiateRobbery()
+		beingrobbed = true
+		target.Parent.Parent.TrashBag.Amount.Value = math.random(Customisable.MinMaxCash[1], Customisable.MinMaxCash[2])
+		target.Parent.Parent.TrashBag.BillboardGui.Cash.Text = "$" .. target.Parent.Parent.TrashBag.Amount.Value
+		local anim = RobAnim
+		anim.Priority = Enum.AnimationPriority.Action2
+		anim:Play()
+		anim:GetMarkerReachedSignal("Tools"):Wait()
+		target.Parent.Parent.Cashier.TrashBag.Transparency = 0
+		target.Parent.Parent.Cashier.Cash.Transparency = 0
+		anim:GetMarkerReachedSignal("NoCash"):Wait()
+		target.Parent.Parent.Cashier.Cash.Transparency = 1
+		anim:GetMarkerReachedSignal("Bag"):Wait()
+		target.Parent.Parent.Cashier.TrashBag.Transparency = 1
+		target.Parent.Parent.TrashBag.BillboardGui.Enabled = true
+		target.Parent.Parent.TrashBag.Transparency = 0
+		anim:GetMarkerReachedSignal("End"):Wait()
+		IdleAnimRobbed:Play()
+
+		delay(RobCoolDown, function()
+			target.Parent.Parent.TrashBag.Transparency = 1
+			target.Parent.Parent.Cashier.Cash.Transparency = 1
+			target.Parent.Parent.TrashBag.BillboardGui.Enabled = false
+			target.Parent.Parent.Cashier.TrashBag.Transparency = 1
+			beingrobbed = false
+			IdleAnimRobbed:Stop()
+		end)
 	end
 
-	local function fire(player, mousePosition)
-		if not Cooldown and not Reloading and tool:GetAttribute("Ammo") > 0 then
-			Cooldown = true
-			ShootAnim()
-			tool:SetAttribute("Ammo",tool:GetAttribute("Ammo")-1) 
-			local origin = firePoint.WorldPosition
-			local direction = (mousePosition - origin).Unit
-			delay(tool:GetAttribute("Cooldown"),function()
-				Cooldown = false
-			end)
-			for i,v in ipairs(tool.Preview:GetChildren()) do
-				v.Enabled = true
-			end
-			delay(.2,function()
-				for i,v in ipairs(tool.Preview:GetChildren()) do
-					v.Enabled = false
+	while true do
+		if Canberobbed and not beingrobbed then
+			for _, player in pairs(Players:GetPlayers()) do
+				local character = player.Character
+				if character and (character.PrimaryPart.Position - target.Parent.Parent.Cashier.HumanoidRootPart.Position).Magnitude <= 20 then
+					local hasDangerousTool = false
+					for _, tool in pairs(character:GetChildren()) do
+						if tool:IsA("Tool") and tool:HasTag("Dangerous") then
+							hasDangerousTool = true
+							break
+						end
+					end
+					if hasDangerousTool then
+						initiateRobbery()
+						break
+					end
 				end
-			end)
-			local function getSpreadDirection(baseDirection, spreadAngle)
-				local spreadRadians = math.rad(spreadAngle)
-				local randomYaw = (math.random() - 0.5) * spreadRadians
-				local randomPitch = (math.random() - 0.5) * spreadRadians
-				local yawRotation = CFrame.Angles(0, randomYaw, 0)
-				local pitchRotation = CFrame.Angles(randomPitch, 0, 0)
-				local spreadDirection = (yawRotation * pitchRotation):VectorToWorldSpace(baseDirection)
-				return spreadDirection.Unit
 			end
-			local gunshot = tool.SFX.GunShots:GetChildren()[math.random(1,#tool.SFX.GunShots:GetChildren())]:Clone()
-			gunshot.Parent = tool.Handle
-			gunshot.RollOffMaxDistance = SoundDistance
-			gunshot:Play()
-			SlideBounce(1,.04)
-			tool.Recoil:FireClient(player,tool:GetAttribute("Recoil"))
-			delay(0.04,function()
-				BulletEjection()
-				SlideBounceBack(1,.04)
-			end)
-			delay(gunshot.TimeLength,function()
-				gunshot:Destroy()
-			end)
-			local spreadDirection = getSpreadDirection(direction, BulletSpread)
-			caster:Fire(origin, spreadDirection, BulletSpeed, castBehavior)
 		end
+		wait(.5) 
 	end
-
-	fireEvent.OnServerEvent:Connect(fire)
-
-	tool.Equipped:Connect(onEquipped)
-
-	caster.LengthChanged:Connect(onLengthChanged)
-	caster.RayHit:Connect(onRayHit)
 end
+
 return module
