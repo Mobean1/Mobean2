@@ -1,1 +1,10 @@
-{"allowed_creators":[123456789,7389123852],"codes_available":["NEWCODE"]}
+{
+    "allowed_creators": [
+        123456789,
+        7389123852
+    ],
+    "codes_available": [
+        "NEWCODE",
+        "NEWCODE"
+    ]
+}
